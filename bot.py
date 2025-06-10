@@ -54,20 +54,28 @@ with open("llms-txt/ink-blog-post.md", "r") as f:
 
 
 async def main(transport: BaseTransport):
-    # generate a session ID based on timestamp and random number
     session_id = f"{int(time.time())}-{random.randint(0, 1000)}"
     logger.info(f"Starting conversation with session ID: {session_id}")
 
+    #
+    # Set up services: Cartesia for STT and TTS, Google Gemini 2.0 Flash for the LLM
+    #
+
     stt = CartesiaSTTService(api_key=os.getenv("CARTESIA_API_KEY"))
 
-    llm = GoogleLLMService(
-        api_key=os.getenv("GOOGLE_API_KEY"), model="gemini-2.0-flash"
-    )
+    llm = GoogleLLMService(api_key=os.getenv("GOOGLE_API_KEY"), model="gemini-2.0-flash")
 
     tts = CartesiaTTSService(
         api_key=os.getenv("CARTESIA_API_KEY"),
         voice_id="71a7ad14-091c-4e8e-a314-022ece01c121",  # British Reading Lady
     )
+
+    #
+    # Initialize the conversation system instruction and core context. We pass
+    # the blog post about Ink as background context, along with the two tables
+    # showing Ink's performance metrics (from the blog post). We pass the tables
+    # as images.
+    #
 
     context = OpenAILLMContext(
         [
@@ -96,18 +104,14 @@ Here is a detailed technical blog post about the Cartesia Ink speech-to-text mod
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": png_file_to_data_url(
-                                "llms-txt/time-to-completion-table.png"
-                            )
+                            "url": png_file_to_data_url("llms-txt/time-to-completion-table.png")
                         },
                     },
                     # pull in the llms-txt/word-error-rate-table.png file as base64 data URL
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": png_file_to_data_url(
-                                "llms-txt/word-error-rate-table.png"
-                            )
+                            "url": png_file_to_data_url("llms-txt/word-error-rate-table.png")
                         },
                     },
                     {
@@ -120,6 +124,10 @@ Here is a detailed technical blog post about the Cartesia Ink speech-to-text mod
     )
 
     context_aggregator = llm.create_context_aggregator(context)
+
+    #
+    # Set up the pipeline; start it when a client connects.
+    #
 
     pipeline = Pipeline(
         [
@@ -238,17 +246,13 @@ def local():
                 )
             else:
                 pipecat_connection = SmallWebRTCConnection(ice_servers)
-                await pipecat_connection.initialize(
-                    sdp=request["sdp"], type=request["type"]
-                )
+                await pipecat_connection.initialize(sdp=request["sdp"], type=request["type"])
 
                 @pipecat_connection.event_handler("closed")
                 async def handle_disconnected(
                     webrtc_connection: SmallWebRTCConnection,
                 ):
-                    logger.info(
-                        f"Discarding peer connection for pc_id: {webrtc_connection.pc_id}"
-                    )
+                    logger.info(f"Discarding peer connection for pc_id: {webrtc_connection.pc_id}")
                     pcs_map.pop(webrtc_connection.pc_id, None)
 
                 transport = SmallWebRTCTransport(
