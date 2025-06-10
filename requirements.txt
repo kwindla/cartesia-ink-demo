@@ -1,0 +1,9 @@
+pipecat-ai[cartesia,silero,webrtc,daily,google]
+uvicorn
+fastapi
+python-dotenv
+pipecatcloud
+pipecat_ai_small_webrtc_prebuilt
+pyaudio
+
+
